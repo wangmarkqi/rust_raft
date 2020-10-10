@@ -1,0 +1,30 @@
+[package]
+name = "rust_raft"
+version = "0.1.0"
+authors = ["wangmarkqi <wangalexqi@126.com>"]
+edition = "2018"
+description = "A rust implementation for raft."
+license = "MIT"
+homepage = "https://github.com/wangmarkqi/rust_raft.git"
+repository = "https://github.com/wangmarkqi/rust_raft.git"
+documentation = "https://docs.rs/rust_sm/0.1.3/rust_raft/"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rust_raft"
+path = "src/lib.rs"
+[[bin]]
+name = "rust_raft"
+path = "src/bin.rs"
+[dependencies]
+sled="0.34.4"
+anyhow = "1.0.31"
+once_cell = "1.4.0"
+serde = { version = "1.0.90", features = ["derive"]}
+serde_json = "1.0.58"
+uuid = { version = "0.8", features = ["serde", "v4"] }
+reqwest = { version = "0.10", features = ["json"] }
+tokio = { version = "0.2", features = ["full"] }
+rustls = "0.18"
+actix-web = { version = "3", features = ["rustls"] }
+async-std = "1.6.5"
+chrono = { version = "0.4", features = ["serde"] }
