@@ -40,7 +40,7 @@ enum_str! {
         leader_change,
         snapshot_ids,
         append_entry,
-        send_data,
+        query_id,
     }
 }
 enum_str! {

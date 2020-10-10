@@ -9,6 +9,7 @@ This crate guarantee:
 
 
   ## Quick Start 
+  - This is normal process to start raft.
   Git clone the crate and run bin.rs.
 ```
 pub mod trans;
@@ -26,3 +27,8 @@ async fn main() {
 }
 
 ```
+
+
+    - ask_append_entry: user call this funciton when add data to distribution system.
+    - ask_snapshot_ids: use call this function to synchronize snapshot with leader. cron_app() funciton will call thish funciton every ConfigRaft:: 
+    - ask_query_id

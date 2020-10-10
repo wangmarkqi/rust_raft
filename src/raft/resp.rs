@@ -49,7 +49,7 @@ pub async fn resp_append_entry(data: &str) -> anyhow::Result<String> {
     Ok(id)
 }
 
-pub async fn resp_send_data(id: &str) -> anyhow::Result<String> {
+pub async fn resp_query_id(id: &str) -> anyhow::Result<String> {
     let res = get(id)?;
     Ok(res)
 }

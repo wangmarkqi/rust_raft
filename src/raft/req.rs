@@ -63,10 +63,10 @@ pub async fn ask_append_entry(data: &str) -> anyhow::Result<String> {
 }
 
 // need export only save id of data ,req data from leader
-pub async fn ask_send_data(id: &str) -> anyhow::Result<String> {
+pub async fn ask_query_id(id: &str) -> anyhow::Result<String> {
     let leader = Arc::clone(&LEADER);
     let leader_url = leader.lock().unwrap();
-    let data = req_post(&leader_url, Which::send_data, id).await?;
+    let data = req_post(&leader_url, Which::query_id, id).await?;
     Ok(data)
 }
 // need export
