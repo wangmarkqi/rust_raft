@@ -4,11 +4,12 @@ This crate is aimed to be rust raft  implementation, which are  a key component 
 This crate guarantee:
 - There is one and only one leader in any time;
 - Data are synchronized with leader, but only keep latest items no more than snapshot numbers in initial config.
- it is user responsibility to fetch and save data from snapshot, to synchronize data out which is not in the scope of current snapshot.
+ 
+ It is user responsibility to fetch data from snapshot, to save data to database, and to synchronize data  which is not in the scope of current snapshot.
 
 
   ## Quick Start 
-  see bin.rs
+  Git clone the crate and run bin.rs.
 ```
 pub mod trans;
 pub mod raft;
