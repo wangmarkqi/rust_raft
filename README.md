@@ -27,8 +27,8 @@ async fn main() {
 }
 
 ```
-
-
+ - api to process data:
+ 
     - ask_append_entry: user call this funciton when add data to distribution system.
     
     - ask_snapshot_ids: use call this function to synchronize snapshot with leader. cron_app() funciton will call thish funciton every ConfigRaft.update_snapshot_tick.
