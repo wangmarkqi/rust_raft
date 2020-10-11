@@ -90,7 +90,7 @@ fn clear_db() -> anyhow::Result<()> {
 
 struct Timer {
     ticks: i64,
-    last: NativeTime,
+    last: chrono::NaiveTime,
 }
 
 impl Timer {
