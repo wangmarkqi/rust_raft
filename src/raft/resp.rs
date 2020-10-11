@@ -1,31 +1,27 @@
 use crate::trans::client::req_post;
 use crate::raft::db::*;
 use super::raft_enum::{Role, Which, Fields};
-use super::raft_conf::{ConfigRaft, CONF, RV};
+use super::raft_conf::{ConfigRaft, CONF, RaftVar};
 use std::sync::{Arc, Mutex};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use super::req::ask_confirm_leader;
 
 pub async fn resp_find_leader() -> anyhow::Result<String> {
-    let leader = Arc::clone(&LEADER);
-    let leader_url = leader.lock().unwrap();
-    if *leader_url == "".to_string() {
+    let leader_url=RaftVar::leader_url();
+    if leader_url == "".to_string() {
         return Err(anyhow!("the leader url of mine is emtpy too"));
     }
-    Ok(leader_url.to_string())
+    Ok(leader_url)
 }
 
 
 pub async fn resp_confirm_leader() -> anyhow::Result<String> {
-    let role = Arc::clone(&ROLE);
-    let role = role.lock().unwrap();
-    Ok(role.to_string())
+    Ok(RaftVar::role())
 }
 
 pub async fn resp_heart_beat() -> anyhow::Result<String> {
-    let role = Arc::clone(&ROLE);
-    let role = role.lock().unwrap();
-    if *role == Role::leader.name() {
+    let role = RaftVar::role();
+    if role == Role::leader.name().to_string() {
         return Ok(Fields::success.name().to_string());
     }
     Ok(Fields::fail.name().to_string())
@@ -44,7 +40,7 @@ pub async fn resp_peer_urls(url_peer: &str) -> anyhow::Result<String> {
 pub async fn resp_append_entry(data: &str) -> anyhow::Result<String> {
     let now = chrono::Local::now();
     let id = now.timestamp_nanos().to_string();
-    update_set_from_str(Fields::snapshots_ids.name(), &id)?;
+    RaftVar::add_snap_ids(&id);
     insert(&id, data)?;
     Ok(id)
 }
@@ -55,16 +51,15 @@ pub async fn resp_query_id(id: &str) -> anyhow::Result<String> {
 }
 
 pub async fn resp_snapshot_ids() -> anyhow::Result<String> {
-    let ids = read_set(Fields::snapshots_ids.name())?;
+    let ids=RaftVar::snap_ids();
     let res = serde_json::to_string(&ids)?;
     Ok(res)
 }
 
 pub async fn resp_peers_vote(snapshot: &str) -> anyhow::Result<String> {
-    let role = Arc::clone(&ROLE);
-    let role = role.lock().unwrap();
+    let role = RaftVar::role();
 // if i am leader ,return false
-    if *role == Role::leader.name() {
+    if role == Role::leader.name().to_string() {
         return Ok(Fields::fail.name().to_string());
     }
     // if current leader confirm fail
@@ -81,9 +76,8 @@ pub async fn resp_peers_vote(snapshot: &str) -> anyhow::Result<String> {
 }
 
 fn yours_snapshot_better(snapshot: &str) -> anyhow::Result<bool> {
-    let mine = get(Fields::snapshots_ids.name())?;
-    let mine: HashSet<String> = serde_json::from_str(&mine)?;
-    let yours: HashSet<String> = serde_json::from_str(&snapshot)?;
+    let mine=RaftVar::snap_ids();
+    let yours:VecDeque<String> = serde_json::from_str(&snapshot)?;
     for my in mine.iter() {
         if !yours.contains(my) {
             return Ok(false);
@@ -93,15 +87,12 @@ fn yours_snapshot_better(snapshot: &str) -> anyhow::Result<bool> {
 }
 
 pub async fn resp_leader_change(leader_url: &str) -> anyhow::Result<String> {
-    let role = Arc::clone(&ROLE);
-    let mut role = role.lock().unwrap();
+    let role=RaftVar::role();
 // if i am not follower
-    if *role != Role::follower.name() {
-        *role = Role::follower.name().to_string();
+    if role != Role::follower.name().to_string() {
+        RaftVar::set_role(Role::follower.name());
     }
     // change leader here
-    let leader = Arc::clone(&LEADER);
-    let mut url = leader.lock().unwrap();
-    *url = leader_url.to_string();
-    Ok(Fields::fail.name().to_string())
+    RaftVar::set_leader_url(leader_url);
+    Ok(Fields::success.name().to_string())
 }

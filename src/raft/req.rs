@@ -1,25 +1,23 @@
-use super::raft_conf::{ConfigRaft, RV};
-use std::collections::{HashMap, HashSet};
+use super::raft_conf::{ConfigRaft, RaftVar,CONF};
+use std::collections::{HashMap, HashSet,VecDeque};
 use crate::trans::client::req_post;
 use super::raft_enum::{Role, Which, Fields};
 use std::sync::{Arc, Mutex};
+use super::db::*;
 
 // befor loop and after election fail
 pub async fn ask_find_leader(url: &str) -> anyhow::Result<()> {
     let res = req_post(url, Which::ask_leader, "").await?;
     // change leader here
-    let rv= Arc::clone(&RV);
-    let mut rv= rv.lock().unwrap();
-    *rv.leader_url= *res;
+    RaftVar::set_leader_url(&res);
     Ok(())
 }
 
 // befor loop
 pub async fn ask_confirm_leader() -> anyhow::Result<bool> {
-    let leader = Arc::clone(&LEADER);
-    let leader_url = leader.lock().unwrap();
+    let leader=RaftVar::leader_url();
 
-    let res = req_post(&leader_url, Which::confirm_leader, "").await?;
+    let res = req_post(&leader, Which::confirm_leader, "").await?;
     if res == Role::leader.name() {
         return Ok(true);
     }
@@ -28,9 +26,8 @@ pub async fn ask_confirm_leader() -> anyhow::Result<bool> {
 
 // high frequency
 pub async fn ask_heart_beat() -> anyhow::Result<bool> {
-    let leader = Arc::clone(&LEADER);
-    let leader_url = leader.lock().unwrap();
-    if *leader_url == "".to_string() {
+    let leader_url=RaftVar::leader_url();
+    if leader_url == "".to_string() {
         panic!("leader url is empty")
     }
     let res = req_post(&leader_url, Which::heart_beat, "").await?;
@@ -42,8 +39,7 @@ pub async fn ask_heart_beat() -> anyhow::Result<bool> {
 
 // low frequency,report my url and update peer urls
 pub async fn ask_peer_urls() -> anyhow::Result<bool> {
-    let leader = Arc::clone(&LEADER);
-    let leader_url = leader.lock().unwrap();
+    let leader_url=RaftVar::leader_url();
     let conf = CONF.get().expect("can not get config raft");
     let me = &conf.url_me;
     let res = req_post(&leader_url, Which::peer_urls, me).await?;
@@ -52,15 +48,24 @@ pub async fn ask_peer_urls() -> anyhow::Result<bool> {
     del_str_in_set(Fields::peer_urls.name(), &conf.url_me)?;
     Ok(true)
 }
-
-
+pub async fn ask_snapshot_ids() -> anyhow::Result<()> {
+    let leader_url=RaftVar::leader_url();
+    let res = req_post(&leader_url, Which::snapshot_ids, "").await?;
+    let res1: VecDeque<String> = serde_json::from_str(&res)?;
+    RaftVar::replace_snap_ids(res1);
+    Ok(())
+}
 
 // low frequency,check all url and del dead one,result will be success,fail ,none(err dead)
 pub async fn ask_peers_vote() -> anyhow::Result<bool> {
-    let snapshot = get(Fields::snapshots_ids.name())?;
+    let snap=RaftVar::snap_ids();
+    let snapshot = serde_json::to_string(&snap)?;
+
     let _peers = get(Fields::peer_urls.name())?;
     let peers: HashSet<String> = serde_json::from_str(&_peers)?;
+
     let mut score = HashMap::new();
+
     for peer in peers.iter() {
         let res = req_post(peer, Which::peer_vote, &snapshot).await;
         match res {
@@ -97,14 +102,12 @@ fn check_i_am_leader(score: &HashMap<String, String>) -> anyhow::Result<bool> {
 // if not find should panic
 pub async fn find_leader_again() -> anyhow::Result<bool> {
     let peers = get(Fields::peer_urls.name())?;
-    let peers:HashSet<String>=serde_json::from_str(&peers)?;
+    let peers: HashSet<String> = serde_json::from_str(&peers)?;
     for peer in peers.iter() {
         ask_find_leader(peer).await?;
         let find = ask_confirm_leader().await?;
         if find {
-            let role = Arc::clone(&ROLE);
-            let mut role = role.lock().unwrap();
-            *role = Role::follower.name().to_string();
+            RaftVar::set_role(Role::follower.name());
             return Ok(true);
         }
     }
