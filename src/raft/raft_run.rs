@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use chrono::Utc;
+use chrono::NaiveTime;
 use super::raft_enum::{Role, Which, Fields};
 use std::sync::{Arc, Mutex};
 use super::raft_conf::{CONF, RV, ConfigRaft};
@@ -16,12 +16,11 @@ pub async fn cron_app() -> anyhow::Result<()> {
     let tick_hb = conf.heartbeat_tick;
     let duration = Duration::from_secs(tick_hb as u64);
 
-    let tick_vote = conf.election_tick;
-    let tick_peer = conf.update_peers_tick;
-    let tick_snapshot = conf.update_snapshot_tick;
-    let tick_clear = conf.clear_db_tick;
+    let mut timer_vote = Timer::init(conf.election_tick);
+    let mut timer_peer = Timer::init(conf.update_peers_tick);
+    let mut timer_snapshot = Timer::init(conf.update_snapshot_tick);
+    let mut timer_clear = Timer::init(conf.clear_db_tick);
 
-    let mut last_hb = Local::now().time();
     if !conf.first_node {
         ask_find_leader(&conf.url_peer).await.unwrap();
         ask_confirm_leader().await.unwrap();
@@ -30,29 +29,26 @@ pub async fn cron_app() -> anyhow::Result<()> {
     loop {
         tokio::time::delay_for(duration).await;
         dbg!("round anaig");
-        let now = Local::now().time();
-        let differ = now - last_hb;
-        let elapse = differ.num_seconds();
 
         let role = RaftVar::role();
 
         if role == Role::follower.name().to_string() {
-            let res1 = ask_heart_beat().await?;
-            if res1 {
-                last_hb = now;
+            let rec_hb = ask_heart_beat().await?;
+            if rec_hb {
+                timer_vote.sleep_again();
             } else {
-                if elapse > tick_vote {
+                if timer_vote.wake_up() {
                     RaftVar::set_role(Role::candidate.name());
-                    last_hb = now;
+                    timer_vote.sleep_again();
                 }
             }
-            if elapse > tick_peer {
+            if timer_peer.wake_up() {
                 ask_peer_urls().await?;
-                last_hb = now;
+                timer_peer.sleep_again();
             }
-            if elapse > tick_snapshot {
+            if timer_snapshot.wake_up() {
                 ask_snapshot_ids().await?;
-                last_hb = now;
+                timer_snapshot.sleep_again();
             }
         }
 
@@ -65,28 +61,53 @@ pub async fn cron_app() -> anyhow::Result<()> {
                 if !find {
                     panic!("last contact from all peers and leader");
                 }
+                RaftVar::set_role(Role::follower.name());
+                timer_vote.sleep_again();
             }
         }
         if role == Role::leader.name().to_string() {
-            if elapse>tick_clear{
+            if timer_clear.wake_up() {
                 clear_db()?;
+                timer_clear.sleep_again();
             }
-
         }
     }
 }
 
 
-fn clear_db()  ->anyhow::Result<()>{
+fn clear_db() -> anyhow::Result<()> {
     let ids = RaftVar::snap_ids();
     for kv in DB.iter() {
         let res = kv?.0.to_vec();
-        let k=String::from_utf8(res)?;
-        if !ids.contains(&k) && k!=Fields::peer_urls.name().to_string(){
-            remove(&k);
+        let k = String::from_utf8(res)?;
+        if !ids.contains(&k) && k != Fields::peer_urls.name().to_string() {
+            remove(&k)?;
         }
     }
     Ok(())
 }
 
 
+struct Timer {
+    ticks: i64,
+    last: NativeTime,
+}
+
+impl Timer {
+    fn init(tick: i64) -> Self {
+        Timer {
+            ticks: tick,
+            last: Local::now().time(),
+        }
+    }
+    fn wake_up(&self) -> bool {
+        let now = Local::now().time();
+        let differ = now - self.last;
+        let elapse = differ.num_seconds();
+        elapse > self.ticks
+    }
+    fn sleep_again(&mut self) {
+        let now = Local::now().time();
+        self.last = now;
+    }
+}

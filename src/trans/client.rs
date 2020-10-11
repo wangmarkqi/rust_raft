@@ -3,13 +3,7 @@ use crate::raft::raft_conf::{ConfigRaft,CONF};
 use crate::raft::raft_enum::{Which};
 
 
-pub async fn test(conf: &ConfigRaft) {
-    let url1 = format!("https://{}/{}/{}", conf.url_me, "user", "wq");
-    let res = req_get(&url1).await;
-    dbg!(res);
-    let res2 = req_post(&conf.url_me,Which::ask_leader,"").await;
-    dbg!(res2);
-}
+
 
 pub async fn req_get(url: &str) -> anyhow::Result<String> {
     let conf=CONF.get().expect("can not find conf");
