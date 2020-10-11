@@ -1,7 +1,7 @@
 use crate::trans::client::req_post;
 use crate::raft::db::*;
 use super::raft_enum::{Role, Which, Fields};
-use super::raft_conf::{ConfigRaft, CONF, LEADER, ROLE};
+use super::raft_conf::{ConfigRaft, CONF, RV};
 use std::sync::{Arc, Mutex};
 use std::collections::{HashMap, HashSet};
 use super::req::ask_confirm_leader;
@@ -42,8 +42,8 @@ pub async fn resp_peer_urls(url_peer: &str) -> anyhow::Result<String> {
 }
 
 pub async fn resp_append_entry(data: &str) -> anyhow::Result<String> {
-    let uuid = uuid::Uuid::new_v4();
-    let id = uuid.to_string();
+    let now = chrono::Local::now();
+    let id = now.timestamp_nanos().to_string();
     update_set_from_str(Fields::snapshots_ids.name(), &id)?;
     insert(&id, data)?;
     Ok(id)

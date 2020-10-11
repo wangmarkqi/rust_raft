@@ -2,14 +2,14 @@ use chrono::prelude::*;
 use chrono::Utc;
 use super::raft_enum::{Role, Which, Fields};
 use std::sync::{Arc, Mutex};
-use super::raft_conf::{ROLE, CONF, ConfigRaft};
+use super::raft_conf::{ CONF,RV, ConfigRaft};
 use std::collections::HashMap;
 use crate::trans::client::req_post;
 use crate::raft::db::{get, insert};
 use super::req::{ask_confirm_leader, ask_find_leader};
 use std::time::Duration;
-use async_std::task;
-use crate::raft::req::{ask_heart_beat, ask_peer_urls, ask_snapshot_ids, ask_peers_vote, find_leader_again, ask_leader_change};
+use crate::raft::req::{ask_heart_beat, ask_peer_urls, ask_peers_vote, find_leader_again, ask_leader_change};
+use crate::raft::api::ask_snapshot_ids;
 
 pub async fn cron_app()->anyhow::Result<()> {
     let conf = CONF.get().expect("can not get config raft");
@@ -24,7 +24,8 @@ pub async fn cron_app()->anyhow::Result<()> {
     ask_confirm_leader().await.unwrap();
 
     loop {
-        task::sleep(duration).await;
+        tokio::time::delay_for(duration).await;
+        dbg!("round anaig");
         let now = Local::now().time();
         let differ = now - last_hb;
         let elapse = differ.num_seconds();

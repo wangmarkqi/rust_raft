@@ -18,11 +18,6 @@ pub async fn handle_post(params: web::Form<Msg>) -> actix_web::Result<HttpRespon
         .content_type("text/plain")
         .body(res))
 }
- peer_vote,
-        leader_change,
-        snapshot_ids,
-        append_entry,
-        query_id,
 async fn dispatch_post(which: &Which, data: &str) -> String {
     let res = match which {
         Which::ask_leader => resp_find_leader().await,

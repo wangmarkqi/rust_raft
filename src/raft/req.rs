@@ -1,7 +1,6 @@
-use super::raft_conf::{ConfigRaft, CONF, LEADER, ROLE};
+use super::raft_conf::{ConfigRaft, RV};
 use std::collections::{HashMap, HashSet};
 use crate::trans::client::req_post;
-use crate::raft::db::*;
 use super::raft_enum::{Role, Which, Fields};
 use std::sync::{Arc, Mutex};
 
@@ -9,9 +8,9 @@ use std::sync::{Arc, Mutex};
 pub async fn ask_find_leader(url: &str) -> anyhow::Result<()> {
     let res = req_post(url, Which::ask_leader, "").await?;
     // change leader here
-    let leader = Arc::clone(&LEADER);
-    let mut leader_url = leader.lock().unwrap();
-    *leader_url = res;
+    let rv= Arc::clone(&RV);
+    let mut rv= rv.lock().unwrap();
+    *rv.leader_url= *res;
     Ok(())
 }
 
@@ -54,30 +53,7 @@ pub async fn ask_peer_urls() -> anyhow::Result<bool> {
     Ok(true)
 }
 
-// data is data to save need export
-pub async fn ask_append_entry(data: &str) -> anyhow::Result<String> {
-    let leader = Arc::clone(&LEADER);
-    let leader_url = leader.lock().unwrap();
-    let id = req_post(&leader_url, Which::append_entry, data).await?;
-    Ok(id)
-}
 
-// need export only save id of data ,req data from leader
-pub async fn ask_query_id(id: &str) -> anyhow::Result<String> {
-    let leader = Arc::clone(&LEADER);
-    let leader_url = leader.lock().unwrap();
-    let data = req_post(&leader_url, Which::query_id, id).await?;
-    Ok(data)
-}
-// need export
-pub async fn ask_snapshot_ids() -> anyhow::Result<HashSet<String>> {
-    let leader = Arc::clone(&LEADER);
-    let leader_url = leader.lock().unwrap();
-    let res = req_post(&leader_url, Which::snapshot_ids, "").await?;
-    let res1: HashSet<String> = serde_json::from_str(&res)?;
-    replace_set_from_set(Fields::snapshots_ids.name(), &res1)?;
-    Ok(res1)
-}
 
 // low frequency,check all url and del dead one,result will be success,fail ,none(err dead)
 pub async fn ask_peers_vote() -> anyhow::Result<bool> {

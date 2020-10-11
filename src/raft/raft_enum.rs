@@ -45,8 +45,6 @@ enum_str! {
 }
 enum_str! {
     pub enum Fields{
-        snapshots_ids,
-        peer_urls,
         success,
         fail,
         none,
